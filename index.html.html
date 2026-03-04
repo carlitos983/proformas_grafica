@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Proforma – Gráfica Silvestre</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #f0f2f5;
+    font-family: -apple-system, 'Segoe UI', Arial, sans-serif;
+    padding: 0 0 60px;
+    -webkit-text-size-adjust: 100%;
+  }
+  .topbar { background: #1a3a5c; color: white; text-align: center; padding: 16px 20px 12px; }
+  .topbar h1 { font-size: 1.25rem; font-weight: 700; }
+  .topbar p { font-size: 0.78rem; opacity: 0.65; margin-top: 3px; }
+
+  .section { background: white; margin: 14px 12px 0; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .section-title { background: #1a3a5c; color: white; padding: 10px 16px; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; }
+  .section-body { padding: 14px 16px; }
+
+  .row { display: flex; gap: 10px; margin-bottom: 10px; }
+  .row:last-child { margin-bottom: 0; }
+  .field { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+  label { font-size: 0.7rem; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+
+  input, textarea {
+    -webkit-appearance: none; appearance: none;
+    border: 1.5px solid #dde1e7; border-radius: 8px;
+    font-size: 1rem; padding: 11px 12px;
+    font-family: inherit; color: #222; background: #fafbfc;
+    outline: none; width: 100%; transition: border-color 0.2s;
+  }
+  input:focus, textarea:focus { border-color: #1a3a5c; background: white; }
+  textarea { resize: vertical; min-height: 65px; }
+
+  .item-card { background: #f7f9fb; border: 1.5px solid #e0e5ec; border-radius: 10px; padding: 12px 14px 12px 42px; margin-bottom: 10px; position: relative; }
+  .item-num { position: absolute; top: 12px; left: 12px; background: #1a3a5c; color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; }
+  .btn-remove { position: absolute; top: 8px; right: 8px; background: none; border: none; color: #c0392b; font-size: 1.2rem; cursor: pointer; padding: 4px 8px; border-radius: 6px; -webkit-tap-highlight-color: transparent; }
+  .item-row-nums { display: flex; gap: 8px; margin-top: 8px; }
+
+  .btn-add { width: 100%; border: 2px dashed #b0bec5; background: none; border-radius: 10px; padding: 13px; color: #546e7a; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 4px; font-family: inherit; -webkit-tap-highlight-color: transparent; }
+
+  .totals-box { background: #f7f9fb; border-radius: 10px; padding: 14px 16px; }
+  .total-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e8ecf0; }
+  .total-row:last-child { border-bottom: none; }
+  .total-row label { color: #555; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; }
+  .total-row span { font-weight: 700; color: #222; font-size: 1rem; }
+  .total-row.grand { margin-top: 6px; background: #1a3a5c; border-radius: 8px; padding: 11px 14px; border: none; }
+  .total-row.grand label { color: white; font-size: 0.9rem; }
+  .total-row.grand span { color: white; font-size: 1.2rem; }
+
+  .toggle-wrap { display: flex; align-items: center; gap: 10px; background: #f0f4f8; border-radius: 9px; padding: 10px 14px; margin-bottom: 10px; cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; }
+  .toggle { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .slider { position: absolute; inset: 0; background: #ccc; border-radius: 24px; transition: background 0.2s; }
+  .slider:before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: white; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  .toggle input:checked + .slider { background: #1a3a5c; }
+  .toggle input:checked + .slider:before { transform: translateX(20px); }
+  .toggle-label { font-size: 0.88rem; color: #333; font-weight: 600; }
+
+  .btn-generate { display: block; width: calc(100% - 24px); margin: 16px 12px 0; background: #c0392b; color: white; border: none; border-radius: 12px; padding: 17px; font-size: 1.05rem; font-weight: 700; cursor: pointer; font-family: inherit; -webkit-tap-highlight-color: transparent; }
+  .btn-generate:active { opacity: 0.85; }
+
+  .ios-hint { background: #fff8e1; border: 1px solid #ffe082; border-radius: 10px; padding: 11px 14px; font-size: 0.82rem; color: #555; margin: 12px 12px 0; line-height: 1.5; }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: flex-end; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal-box { background: white; border-radius: 18px 18px 0 0; padding: 24px 20px 40px; width: 100%; max-width: 500px; text-align: center; }
+  .modal-box h2 { font-size: 1.1rem; color: #1a3a5c; margin-bottom: 8px; }
+  .modal-box p { font-size: 0.88rem; color: #555; margin-bottom: 20px; line-height: 1.6; }
+  .modal-btn { display: block; width: 100%; padding: 14px; border-radius: 10px; border: none; font-size: 1rem; font-weight: 700; font-family: inherit; cursor: pointer; margin-bottom: 10px; }
+  .modal-btn.primary { background: #1a3a5c; color: white; }
+  .modal-btn.secondary { background: #f0f2f5; color: #333; }
+
+  @media (max-width: 400px) { .row { flex-direction: column; } }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>📄 Generador de Proformas</h1>
+  <p>Gráfica Silvestre S.A.C.</p>
+</div>
+
+<div class="ios-hint" id="iosHint" style="display:none">
+  📱 <strong>En iPhone:</strong> El PDF se abrirá en una nueva pestaña. Desde ahí tocá el botón <strong>Compartir ↑</strong> para enviarlo por WhatsApp o guardarlo.
+</div>
+
+<!-- DATOS -->
+<div class="section">
+  <div class="section-title">📋 Datos del documento</div>
+  <div class="section-body">
+    <div class="row">
+      <div class="field">
+        <label>Señores (cliente)</label>
+        <input type="text" id="cliente" placeholder="Nombre del cliente" autocomplete="off" />
+      </div>
+      <div class="field" style="max-width:105px">
+        <label>N° Proforma</label>
+        <input type="text" id="numero" autocomplete="off" />
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>Fecha</label>
+        <input type="text" id="fecha" placeholder="DD/MM/AAAA" autocomplete="off" />
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ÍTEMS -->
+<div class="section">
+  <div class="section-title">🛒 Ítems</div>
+  <div class="section-body">
+    <div id="itemsContainer"></div>
+    <button class="btn-add" onclick="addItem()">+ Agregar ítem</button>
+  </div>
+</div>
+
+<!-- TOTALES -->
+<div class="section">
+  <div class="section-title">💰 Totales</div>
+  <div class="section-body">
+    <p style="font-size:0.78rem;color:#888;background:#f0f4f8;border-radius:8px;padding:8px 12px;margin-bottom:12px;">
+      💡 Los precios ingresados <strong>ya incluyen IGV</strong>. Se desglosa automáticamente.
+    </p>
+    <div class="totals-box">
+      <div class="total-row"><label>Sub Total (sin IGV)</label><span id="subtotalDisplay">S/ 0.00</span></div>
+      <div class="total-row"><label>IGV 18%</label><span id="igvDisplay">S/ 0.00</span></div>
+      <div class="total-row grand"><label>Total</label><span id="totalDisplay">S/ 0.00</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- NOTAS -->
+<div class="section">
+  <div class="section-title">📝 Notas</div>
+  <div class="section-body">
+    <label class="toggle-wrap" for="entregaCheck">
+      <div class="toggle"><input type="checkbox" id="entregaCheck" checked /><div class="slider"></div></div>
+      <span class="toggle-label">Tiempo de entrega: <strong>15 días hábiles</strong></span>
+    </label>
+    <label class="toggle-wrap" for="igvCheck">
+      <div class="toggle"><input type="checkbox" id="igvCheck" checked /><div class="slider"></div></div>
+      <span class="toggle-label">Nuestros precios ya incluyen <strong>IGV</strong></span>
+    </label>
+    <textarea id="nota" placeholder="Otra nota adicional (opcional)…"></textarea>
+  </div>
+</div>
+
+<button class="btn-generate" onclick="generarPDF()">⬇️ Generar PDF</button>
+
+<!-- Modal iOS -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box">
+    <h2>✅ ¡PDF listo!</h2>
+    <p>Se abrió en una nueva pestaña.<br><br>Tocá el botón <strong>Compartir ↑</strong> (abajo en Safari) para enviarlo por <strong>WhatsApp</strong>, guardarlo en Archivos o imprimirlo.</p>
+    <button class="modal-btn primary" onclick="cerrarModal()">Entendido ✓</button>
+    <button class="modal-btn secondary" onclick="cerrarModal()">Cerrar</button>
+  </div>
+</div>
+
+<script>
+// Detección iOS
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+if (isIOS) document.getElementById('iosHint').style.display = 'block';
+
+// Estado
+let items = [];
+let nextId = 1;
+
+// Valores por defecto — sin valueAsDate (falla en iOS al abrir archivo local)
+document.getElementById('numero').value = '0006';
+(function setFechaHoy() {
+  const hoy = new Date();
+  const d = String(hoy.getDate()).padStart(2, '0');
+  const m = String(hoy.getMonth() + 1).padStart(2, '0');
+  const y = hoy.getFullYear();
+  document.getElementById('fecha').value = d + '/' + m + '/' + y;
+})();
+
+// 3 ítems iniciales
+addItem(); addItem(); addItem();
+
+function addItem() {
+  items.push({ id: nextId++, desc: '', qty: '', price: '' });
+  renderItems();
+}
+
+function removeItem(id) {
+  if (items.length <= 1) return;
+  items = items.filter(i => i.id !== id);
+  renderItems();
+}
+
+function updateItem(id, field, val) {
+  const item = items.find(i => i.id === id);
+  if (item) { item[field] = val; recalcular(); }
+}
+
+function getTotal() {
+  return items.reduce((s, i) => s + (parseFloat(i.qty) || 0) * (parseFloat(i.price) || 0), 0);
+}
+
+function fmt(n) {
+  return 'S/ ' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function recalcular() {
+  const total = getTotal();
+  const sub = total / 1.18;
+  const igv = total - sub;
+  document.getElementById('subtotalDisplay').textContent = fmt(sub);
+  document.getElementById('igvDisplay').textContent = fmt(igv);
+  document.getElementById('totalDisplay').textContent = fmt(total);
+}
+
+function renderItems() {
+  document.getElementById('itemsContainer').innerHTML = items.map((item, idx) => {
+    const st = (parseFloat(item.qty) || 0) * (parseFloat(item.price) || 0);
+    return `<div class="item-card">
+      <div class="item-num">${idx + 1}</div>
+      ${items.length > 1 ? `<button class="btn-remove" onclick="removeItem(${item.id})">✕</button>` : ''}
+      <div>
+        <label style="font-size:0.7rem;color:#666;font-weight:600;text-transform:uppercase">Descripción</label>
+        <textarea rows="2" placeholder="Descripción del producto o servicio…" style="margin-top:5px"
+          oninput="updateItem(${item.id},'desc',this.value)">${item.desc}</textarea>
+      </div>
+      <div class="item-row-nums">
+        <div class="field">
+          <label>Cantidad</label>
+          <input type="number" inputmode="decimal" min="0" placeholder="0" value="${item.qty}"
+            oninput="updateItem(${item.id},'qty',this.value)" style="text-align:center" />
+        </div>
+        <div class="field">
+          <label>Precio unit.</label>
+          <input type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" value="${item.price}"
+            oninput="updateItem(${item.id},'price',this.value)" style="text-align:right" />
+        </div>
+        <div class="field">
+          <label>Subtotal</label>
+          <input type="text" readonly value="${fmt(st)}" style="background:#eef2f7;color:#1a3a5c;font-weight:700;text-align:right" />
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  recalcular();
+}
+
+// PDF
+function generarPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = 210, PH = 297, ml = 15, mr = 15, mt = 10, cw = W - ml - mr;
+
+  const navy = [26,58,92], red = [192,57,43], black = [30,30,30], gray = [110,110,110], white = [255,255,255];
+
+  function sf(style, size, color) {
+    doc.setFont('helvetica', style);
+    doc.setFontSize(size);
+    if (color) doc.setTextColor(...color);
+  }
+
+  let y = mt;
+
+  // Header
+  sf('bold', 22, navy); doc.text('GRAFICA', ml, y + 8);
+  sf('bold', 28, navy); doc.text('SILVESTRE', ml, y + 18);
+  sf('bold', 11, navy); doc.text('S.A.C.', ml + 62, y + 18);
+  doc.setDrawColor(...navy); doc.setLineWidth(0.8); doc.line(ml, y + 21, ml + 78, y + 21);
+  sf('normal', 7.5, gray); doc.text('R.U.C. 20611625112', ml, y + 27);
+  const rx = ml + cw - 74;
+  sf('normal', 7, gray);
+  doc.text('Imprenta Digital - Pre Prensa - Edicion', rx, y + 6);
+  doc.text('Papeleria - Diseno Grafico', rx, y + 11);
+  sf('bold', 7.5, navy); doc.text('Publicidad Grafica y Asesoria en General', rx, y + 17);
+  y += 34;
+
+  doc.setDrawColor(...navy); doc.setLineWidth(0.5); doc.line(ml, y, W - mr, y); y += 9;
+
+  sf('bold', 24, red); doc.text('PROFORMA', W / 2, y, { align: 'center' }); y += 11;
+
+  const cliente   = document.getElementById('cliente').value.trim() || '—';
+  const fechaTxt  = document.getElementById('fecha').value.trim() || '—';
+  const numero    = document.getElementById('numero').value.trim() || '0001';
+
+  sf('bold', 10, navy);  doc.text('SENORES: ', ml, y);
+  sf('bold', 10, black); doc.text(cliente, ml + 25, y);
+  sf('bold', 10, navy);  doc.text('FECHA:', W - mr - 44, y);
+  sf('bold', 10, black); doc.text(fechaTxt, W - mr - 29, y);
+  y += 7;
+  sf('normal', 9, gray); doc.text(numero, ml, y); y += 7;
+
+  // Tabla
+  const colW = [12, 20, cw - 12 - 20 - 30 - 30, 30, 30];
+  const colPos = []; let cx2 = ml;
+  colW.forEach(w => { colPos.push(cx2); cx2 += w; });
+
+  doc.setFillColor(...navy); doc.rect(ml, y, cw, 9, 'F');
+  sf('bold', 7.5, white);
+  ['ITEM','CANTIDAD','DESCRIPCION','PRECIO\nUNITARIO','PRECIO\nTOTAL'].forEach((h, i) => {
+    const mx = colPos[i] + colW[i] / 2;
+    const ln = h.split('\n');
+    ln.length === 2
+      ? (doc.text(ln[0], mx, y + 3.5, { align:'center' }), doc.text(ln[1], mx, y + 7.2, { align:'center' }))
+      : doc.text(h, mx, y + 5.5, { align: 'center' });
+  });
+  y += 9;
+
+  const vi = items.filter(i => i.desc.trim() || parseFloat(i.qty) || parseFloat(i.price));
+  const MIN = Math.max(5, vi.length + 2);
+
+  for (let idx = 0; idx < MIN; idx++) {
+    const it = vi[idx];
+    const q = it ? (parseFloat(it.qty) || 0) : 0;
+    const p = it ? (parseFloat(it.price) || 0) : 0;
+    const rs = q * p;
+    const dl = (it && it.desc.trim()) ? doc.splitTextToSize(it.desc, colW[2] - 4) : [];
+    const rh = Math.max(12, dl.length * 4.8 + 5);
+
+    doc.setFillColor(idx%2===0?250:242, idx%2===0?251:246, idx%2===0?252:250);
+    doc.rect(ml, y, cw, rh, 'F');
+    doc.setDrawColor(200,210,220); doc.setLineWidth(0.3);
+    colPos.forEach((px, i) => doc.rect(px, y, colW[i], rh));
+
+    if (it) {
+      const my = y + rh / 2 + 1.8;
+      sf('normal', 8.5, black);
+      doc.text(String(idx+1), colPos[0]+colW[0]/2, my, { align:'center' });
+      if (q) doc.text(String(q), colPos[1]+colW[1]/2, my, { align:'center' });
+      if (dl.length) { sf('bold', 8, black); doc.text(dl, colPos[2]+2, y+5.5); }
+      sf('normal', 8.5, black);
+      if (p) doc.text('S/'+p.toFixed(2), colPos[3]+colW[3]-2, my, { align:'right' });
+      if (rs) { sf('bold', 8.5, black); doc.text('S/'+rs.toFixed(2), colPos[4]+colW[4]-2, my, { align:'right' }); }
+    }
+    y += rh;
+  }
+
+  doc.setDrawColor(...navy); doc.setLineWidth(0.5); doc.line(ml, y, W-mr, y); y += 9;
+
+  // Totales
+  const totalVal = getTotal(), subVal = totalVal/1.18, igvVal = totalVal - subVal;
+  const tw = 72, tx = W - mr - tw;
+  function tRow(lbl, val, bg, fg) {
+    doc.setFillColor(...bg); doc.rect(tx, y, tw, 8, 'F');
+    doc.setDrawColor(180,190,200); doc.setLineWidth(0.3); doc.rect(tx, y, tw, 8);
+    sf('bold', 8, fg); doc.text(lbl, tx+3, y+5.5);
+    doc.text('S/'+val.toFixed(2), tx+tw-3, y+5.5, { align:'right' }); y += 8;
+  }
+  tRow('SUB TOTAL', subVal, navy, white);
+  tRow('IGV : 18%', igvVal, red, white);
+  tRow('TOTAL', totalVal, [30,30,30], white);
+
+  // Notas
+  const notas = [];
+  if (document.getElementById('entregaCheck').checked) notas.push('Tiempo de entrega: 15 dias habiles.');
+  if (document.getElementById('igvCheck').checked)     notas.push('Nuestros precios ya incluyen IGV.');
+  const extra = document.getElementById('nota').value.trim();
+  if (extra) notas.push(extra);
+  if (notas.length) {
+    y += 6; sf('italic', 8, gray);
+    const nl = doc.splitTextToSize(notas.join('  |  '), cw);
+    doc.text(nl, ml, y); y += nl.length * 4.8;
+  }
+
+  // Footer
+  const fy = PH - 28;
+  doc.setDrawColor(...navy); doc.setLineWidth(0.5); doc.line(ml, fy, W-mr, fy);
+  sf('bold', 8, navy);   doc.text('Cuenta de Detracciones', ml, fy+6);
+  sf('normal', 7.5, black);
+  doc.text('Banco de la Nacion: 00 006 115918', ml, fy+11);
+  doc.text('Ahorros: 5622006434', ml, fy+16);
+  doc.text('CCI: 00901020562200643409', ml, fy+21);
+  doc.text('Jr. De La Union 234, Cercado de Lima', rx, fy+6);
+  doc.text('Tel: 933571597 / 991158089', rx, fy+12);
+  doc.text('Sergraficossilvestre@hotmail.com', rx, fy+18);
+
+  // Guardar
+  const blob = doc.output('blob');
+  const url  = URL.createObjectURL(blob);
+
+  if (isIOS) {
+    window.open(url, '_blank');
+    document.getElementById('modalOverlay').classList.add('show');
+  } else {
+    const a = document.createElement('a');
+    a.href = url; a.download = 'Proforma_' + numero + '_' + cliente.replace(/[^a-zA-Z0-9]/g,'_').substring(0,20) + '.pdf';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => window.open(url, '_blank'), 300);
+  }
+}
+
+function cerrarModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+</script>
+</body>
+</html>
