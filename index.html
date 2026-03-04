@@ -304,12 +304,12 @@ function generarPDF() {
   var y = mt;
 
   // Logo izquierda
-  doc.addImage(IMG_LOGO, 'PNG', ml, y, 60, 24);
+  doc.addImage(IMG_LOGO, 'PNG', ml, y, 72, 29);
 
   // Foto derecha agrandada (incluye texto)
-  doc.addImage(IMG_FOTO, 'PNG', 108, y, 87, 28);
+  doc.addImage(IMG_FOTO, 'PNG', 104, y, 93, 32);
 
-  y += 30;
+  y += 34;
   sf('bold', 9, BLACK);
   doc.text('R.U.C. 20611625112', ml, y+2);
   y += 10;
@@ -392,7 +392,7 @@ function generarPDF() {
       sf('bold', 8.5, BLACK);
       doc.text(String(ri+1), colPos[0]+colW[0]/2, my, {align:'center'});
       if (q) doc.text(String(q), colPos[1]+colW[1]/2, my, {align:'center'});
-      if (dl.length) doc.text(dl, colPos[2]+2, y+5.5);
+      if (dl.length) doc.text(dl, colPos[2]+2, my);
       if (p)  doc.text('S/'+p.toFixed(2),  colPos[3]+colW[3]/2, my, {align:'center'});
       if (rs) doc.text('S/'+rs.toFixed(2), colPos[4]+colW[4]/2, my, {align:'center'});
     }
