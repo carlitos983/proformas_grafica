@@ -367,9 +367,35 @@ function generarPDF() {
   }
   y += hdrH;
 
-  // Solo filas con datos + 1 vacía
+  // Solo filas con datos + 1 vacía al final
   var vi = items.filter(function(it){ return it.desc.trim()||parseFloat(it.qty)||parseFloat(it.price); });
   var rowsToShow = Math.max(vi.length+1, 2);
+
+  // Espacio reservado para footer + totales (aprox 60mm)
+  var footerReserve = 65;
+  // Límite de y antes de necesitar nueva página
+  var pageLimit = PH - footerReserve;
+
+  function drawTableHeader() {
+    doc.setFillColor(RED[0],RED[1],RED[2]);
+    doc.rect(ml, y, cw, hdrH, 'F');
+    doc.setDrawColor(WHITE[0],WHITE[1],WHITE[2]);
+    doc.setLineWidth(0.5);
+    for (var ci=1; ci<colPos.length; ci++) doc.line(colPos[ci], y, colPos[ci], y+hdrH);
+    sf('bold', 7.5, WHITE);
+    var headers2 = ['ITEM','CANTIDAD','DESCRIPCION','PRECIO\nUNITARIO','PRECIO\nTOTAL'];
+    for (var hi=0; hi<headers2.length; hi++) {
+      var mx2 = colPos[hi] + colW[hi]/2;
+      var ln2 = headers2[hi].split('\n');
+      if (ln2.length===2) {
+        doc.text(ln2[0], mx2, y+3.2, {align:'center'});
+        doc.text(ln2[1], mx2, y+7.0, {align:'center'});
+      } else {
+        doc.text(headers2[hi], mx2, y+5.5, {align:'center'});
+      }
+    }
+    y += hdrH;
+  }
 
   for (var ri=0; ri<rowsToShow; ri++) {
     var it    = vi[ri];
@@ -378,6 +404,31 @@ function generarPDF() {
     var rs    = q * p;
     var dl    = (it && it.desc.trim()) ? doc.splitTextToSize(it.desc, colW[2]-4) : [];
     var rowH  = Math.max(14, dl.length*5+6);
+
+    // Si la fila no cabe en la página actual → nueva página
+    if (y + rowH > pageLimit) {
+      // Footer en página actual
+      var fyP = PH-33;
+      doc.setDrawColor(LGRAY[0],LGRAY[1],LGRAY[2]); doc.setLineWidth(0.3);
+      doc.line(ml, fyP, W-mr, fyP);
+      doc.addImage(IMG_FOOTER_BANCOS, 'PNG', ml, fyP+2, 78, 28);
+      doc.addImage(IMG_FOOTER_ICONS,  'PNG', W-mr-75, fyP+2, 75, 28);
+
+      // Nueva página
+      doc.addPage();
+      y = mt;
+
+      // Header simplificado en página 2+
+      sf('bold', 9, BLACK); doc.text('GRAFICA SILVESTRE S.A.C. - R.U.C. 20611625112', ml, y+5);
+      sf('bold', 9, RED);   doc.text('PROFORMA (cont.) - '+cliente+' - '+fechaTxt, ml, y+11);
+      y += 18;
+      doc.setDrawColor(LGRAY[0],LGRAY[1],LGRAY[2]); doc.setLineWidth(0.3);
+      doc.line(ml, y, W-mr, y);
+      y += 6;
+
+      // Repetir header de tabla
+      drawTableHeader();
+    }
 
     doc.setFillColor(255,255,255);
     doc.rect(ml, y, cw, rowH, 'F');
