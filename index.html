@@ -371,10 +371,11 @@ function generarPDF() {
   var vi = items.filter(function(it){ return it.desc.trim()||parseFloat(it.qty)||parseFloat(it.price); });
   var rowsToShow = Math.max(vi.length+1, 2);
 
-  // Espacio reservado para footer + totales (aprox 60mm)
-  var footerReserve = 65;
-  // Límite de y antes de necesitar nueva página
-  var pageLimit = PH - footerReserve;
+  // footer fijo en PH-33 = 264mm
+  // En páginas intermedias: cortar antes del footer (264 - 5 margen = 259)
+  // En página final: necesitamos espacio para totales(25) + notas(10) antes del footer
+  // Pre-calculamos cuántas páginas habrá para saber cuándo aplicar reserva extra
+  var pageLimit = PH - 38;  // para páginas intermedias: dejar solo espacio para footer
 
   function drawTableHeader() {
     doc.setFillColor(RED[0],RED[1],RED[2]);
@@ -397,6 +398,32 @@ function generarPDF() {
     y += hdrH;
   }
 
+  // Pre-calcular en qué página cae cada fila
+  var pageBreaks = []; // índices donde hay salto de página
+  var testY = y; // y simulado
+  for (var ri2=0; ri2<rowsToShow; ri2++) {
+    var it2  = vi[ri2];
+    var dl2  = (it2 && it2.desc.trim()) ? doc.splitTextToSize(it2.desc, colW[2]-4) : [];
+    var rh2  = Math.max(14, dl2.length*5+6);
+    // Estimar si después de esta fila quedan más filas o si es la última "tanda"
+    // Reservar más espacio en la última página para totales+notas
+    var isLastChunk = (ri2 === rowsToShow-1);
+    var reserve = 38; // para páginas intermedias
+    // Si desde aquí hasta el final caben en una sola página, reservar espacio para totales
+    var remainingH = 0;
+    for (var rj=ri2; rj<rowsToShow; rj++) {
+      var itj = vi[rj];
+      var dlj = (itj && itj.desc.trim()) ? doc.splitTextToSize(itj.desc, colW[2]-4) : [];
+      remainingH += Math.max(14, dlj.length*5+6);
+    }
+    if (remainingH + testY < PH - 38) reserve = 73; // última tanda, reservar para totales
+    if (testY + rh2 > PH - reserve) {
+      pageBreaks.push(ri2);
+      testY = mt + 30; // estimado de y después del mini-header en página nueva
+    }
+    testY += rh2;
+  }
+
   for (var ri=0; ri<rowsToShow; ri++) {
     var it    = vi[ri];
     var q     = it ? (parseFloat(it.qty)||0) : 0;
@@ -405,8 +432,8 @@ function generarPDF() {
     var dl    = (it && it.desc.trim()) ? doc.splitTextToSize(it.desc, colW[2]-4) : [];
     var rowH  = Math.max(14, dl.length*5+6);
 
-    // Si la fila no cabe en la página actual → nueva página
-    if (y + rowH > pageLimit) {
+    // Si esta fila está marcada como inicio de nueva página
+    if (pageBreaks.indexOf(ri) !== -1) {
       // Footer en página actual
       var fyP = PH-33;
       doc.setDrawColor(LGRAY[0],LGRAY[1],LGRAY[2]); doc.setLineWidth(0.3);
