@@ -371,35 +371,39 @@ function generarPDF() {
   var vi = items.filter(function(it){ return it.desc.trim()||parseFloat(it.qty)||parseFloat(it.price); });
   var rowsToShow = Math.max(vi.length+1, 2);
 
-  // Margen de corte: footer está en PH-33=264, totales ocupan ~30mm
-  // Cortamos a 230 para dejar espacio a totales+notas en última página
-  // En páginas intermedias cortamos a 258 (justo antes del footer)
-  var CUT_LAST = 225;   // última página: dejar espacio para totales
-  var CUT_MID  = 258;   // páginas intermedias
+  // lineH en mm para font 8.5pt: 1pt=0.353mm, leading ~1.35 → 8.5*0.353*1.35 ≈ 4.05mm
+  var LINE_H   = 4.2;
+  var PAD_V    = 5;    // padding vertical por lado (mm)
+  var MIN_ROW  = 14;   // altura mínima de fila (mm)
+  var DESC_W   = colW[2] - 4; // ancho útil de columna descripción
 
-  function newPage() {
-    // Dibujar footer de la página que termina
-    var fyP = PH-33;
+  // Calcula exactamente cuántas líneas ocupa un texto en la columna desc
+  function calcLines(text) {
+    if (!text || !text.trim()) return 0;
+    var lines = doc.splitTextToSize(text, DESC_W);
+    return lines.length;
+  }
+
+  // Calcula el alto de una fila en mm
+  function calcRowH(it) {
+    if (!it || !it.desc.trim()) return MIN_ROW;
+    var n = calcLines(it.desc);
+    return Math.max(MIN_ROW, n * LINE_H + PAD_V * 2);
+  }
+
+  // Reserva para totales + notas + algo de aire (mm)
+  var TOTALS_H = 35;
+  // Footer fijo en PH-33
+  var FOOTER_Y = PH - 33;
+
+  function drawFooter() {
     doc.setDrawColor(LGRAY[0],LGRAY[1],LGRAY[2]); doc.setLineWidth(0.3);
-    doc.line(ml, fyP, W-mr, fyP);
-    doc.addImage(IMG_FOOTER_BANCOS, 'PNG', ml,      fyP+2, 78, 28);
-    doc.addImage(IMG_FOOTER_ICONS,  'PNG', W-mr-75, fyP+2, 75, 28);
-    // Nueva página
-    doc.addPage();
-    y = mt;
-    // Encabezado completo igual a la primera página
-    doc.addImage(IMG_LOGO, 'PNG', ml, y, 72, 29);
-    doc.addImage(IMG_FOTO, 'PNG', 104, y, 93, 32);
-    y += 34;
-    sf('bold', 9, BLACK); doc.text('R.U.C. 20611625112', ml, y+2);
-    y += 10;
-    doc.setDrawColor(LGRAY[0],LGRAY[1],LGRAY[2]); doc.setLineWidth(0.3);
-    doc.line(ml, y, W-mr, y);
-    y += 8;
-    // Indicar que es continuación
-    sf('bold', 9, RED); doc.text('PROFORMA (continuación)  –  '+cliente+'  –  '+fechaTxt, ml, y);
-    y += 10;
-    // Header tabla
+    doc.line(ml, FOOTER_Y, W-mr, FOOTER_Y);
+    doc.addImage(IMG_FOOTER_BANCOS,'PNG', ml,      FOOTER_Y+2, 78, 28);
+    doc.addImage(IMG_FOOTER_ICONS, 'PNG', W-mr-75, FOOTER_Y+2, 75, 28);
+  }
+
+  function drawTableHeader() {
     doc.setFillColor(RED[0],RED[1],RED[2]); doc.rect(ml,y,cw,hdrH,'F');
     doc.setDrawColor(WHITE[0],WHITE[1],WHITE[2]); doc.setLineWidth(0.5);
     for (var ci=1;ci<colPos.length;ci++) doc.line(colPos[ci],y,colPos[ci],y+hdrH);
@@ -413,50 +417,80 @@ function generarPDF() {
     y += hdrH;
   }
 
-  // Calcular altura restante de todas las filas para saber si estamos en última página
-  function remainingHeight(fromIdx) {
+  function newPage() {
+    drawFooter();
+    doc.addPage();
+    y = mt;
+    doc.addImage(IMG_LOGO,'PNG', ml,  y, 72, 29);
+    doc.addImage(IMG_FOTO,'PNG', 104, y, 93, 32);
+    y += 34;
+    sf('bold',9,BLACK); doc.text('R.U.C. 20611625112', ml, y+2);
+    y += 10;
+    doc.setDrawColor(LGRAY[0],LGRAY[1],LGRAY[2]); doc.setLineWidth(0.3);
+    doc.line(ml, y, W-mr, y);
+    y += 8;
+    sf('bold',9,RED); doc.text('PROFORMA (continuación)  –  '+cliente+'  –  '+fechaTxt, ml, y);
+    y += 10;
+    drawTableHeader();
+  }
+
+  // Pre-calcular alturas de todas las filas
+  var rowHeights = [];
+  for (var ri=0; ri<rowsToShow; ri++) {
+    rowHeights.push(calcRowH(vi[ri]));
+  }
+
+  // Calcular altura total restante desde una fila
+  function remH(fromIdx) {
     var h = 0;
-    for (var rj=fromIdx; rj<rowsToShow; rj++) {
-      var itj=vi[rj];
-      var dlj=(itj&&itj.desc.trim())?doc.splitTextToSize(itj.desc,colW[2]-4):[];
-      h += Math.max(14, dlj.length*5+6);
-    }
+    for (var rj=fromIdx; rj<rowsToShow; rj++) h += rowHeights[rj];
     return h;
   }
 
   for (var ri=0; ri<rowsToShow; ri++) {
-    var it    = vi[ri];
-    var q     = it ? (parseFloat(it.qty)||0) : 0;
-    var p     = it ? (parseFloat(it.price)||0) : 0;
-    var rs    = q * p;
-    var dl    = (it && it.desc.trim()) ? doc.splitTextToSize(it.desc, colW[2]-4) : [];
-    var rowH  = Math.max(14, dl.length*5+6);
+    var it   = vi[ri];
+    var q    = it ? (parseFloat(it.qty)||0)   : 0;
+    var p    = it ? (parseFloat(it.price)||0) : 0;
+    var rs   = q * p;
+    var dl   = (it && it.desc.trim()) ? doc.splitTextToSize(it.desc, DESC_W) : [];
+    var rowH = rowHeights[ri];
 
-    // ¿Caben el resto de las filas + totales en esta página?
-    var remH = remainingHeight(ri);
-    var isLastBatch = (y + remH + 35) < CUT_MID; // 35 = totales+notas
-    var cutY = isLastBatch ? CUT_LAST : CUT_MID;
+    // Espacio disponible hasta el footer
+    var avail = FOOTER_Y - y;
 
-    if (y + rowH > cutY) {
+    // ¿Quedan pocas filas que caben con totales en esta página?
+    var remaining = remH(ri);
+    var needsTotals = (ri === rowsToShow-1) || (remaining + TOTALS_H <= avail);
+
+    // Decidir si cortar: la fila no cabe, O cabe pero los totales ya no cabrían después
+    var spaceNeeded = rowH + (needsTotals ? TOTALS_H : 0);
+    if (y + spaceNeeded > FOOTER_Y - 2) {
       newPage();
+      // Recalcular avail tras nueva página
+      avail = FOOTER_Y - y;
     }
 
-    doc.setFillColor(255,255,255);
-    doc.rect(ml, y, cw, rowH, 'F');
+    // Dibujar fila
+    doc.setFillColor(255,255,255); doc.rect(ml,y,cw,rowH,'F');
     doc.setDrawColor(0,0,0); doc.setLineWidth(0.4);
-    doc.rect(ml, y, cw, rowH);
-    for (var ci=1; ci<colPos.length; ci++) {
-      doc.line(colPos[ci], y, colPos[ci], y+rowH);
-    }
+    doc.rect(ml,y,cw,rowH);
+    for (var ci=1;ci<colPos.length;ci++) doc.line(colPos[ci],y,colPos[ci],y+rowH);
 
     if (it) {
-      var my = y + rowH/2 + 1.8;
-      sf('bold', 8.5, BLACK);
-      doc.text(String(ri+1), colPos[0]+colW[0]/2, my, {align:'center'});
-      if (q) doc.text(String(q), colPos[1]+colW[1]/2, my, {align:'center'});
-      if (dl.length) doc.text(dl, colPos[2]+2, my);
-      if (p)  doc.text('S/'+p.toFixed(2),  colPos[3]+colW[3]/2, my, {align:'center'});
-      if (rs) doc.text('S/'+rs.toFixed(2), colPos[4]+colW[4]/2, my, {align:'center'});
+      // Texto centrado verticalmente
+      var textTop = y + PAD_V + LINE_H * 0.7; // primera línea
+      sf('bold',8.5,BLACK);
+      var midY = y + rowH/2 + 1.5;
+      doc.text(String(ri+1), colPos[0]+colW[0]/2, midY, {align:'center'});
+      if (q) doc.text(String(q), colPos[1]+colW[1]/2, midY, {align:'center'});
+      // Descripción: centrada verticalmente si es 1 línea, desde arriba si es multilinea
+      if (dl.length) {
+        var totalTextH = dl.length * LINE_H;
+        var textStartY = y + (rowH - totalTextH) / 2 + LINE_H * 0.7;
+        doc.text(dl, colPos[2]+2, textStartY);
+      }
+      if (p)  doc.text('S/'+p.toFixed(2),  colPos[3]+colW[3]/2, midY, {align:'center'});
+      if (rs) doc.text('S/'+rs.toFixed(2), colPos[4]+colW[4]/2, midY, {align:'center'});
     }
     y += rowH;
   }
