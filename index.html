@@ -301,6 +301,15 @@ function generarPDF() {
     if (color) doc.setTextColor(color[0], color[1], color[2]);
   }
 
+  // Formatea precio con los decimales necesarios (mínimo 2, hasta 4)
+  function fmtPrice(v) {
+    if (!v) return '0.00';
+    var s = v.toString();
+    var dec = s.includes('.') ? s.split('.')[1].length : 0;
+    var places = Math.min(Math.max(dec, 2), 4);
+    return 'S/' + v.toFixed(places);
+  }
+
   var y = mt;
 
   // Logo izquierda
@@ -489,8 +498,8 @@ function generarPDF() {
         var textStartY = y + (rowH - totalTextH) / 2 + LINE_H * 0.7;
         doc.text(dl, colPos[2]+2, textStartY);
       }
-      if (p)  doc.text('S/'+p.toFixed(2),  colPos[3]+colW[3]/2, midY, {align:'center'});
-      if (rs) doc.text('S/'+rs.toFixed(2), colPos[4]+colW[4]/2, midY, {align:'center'});
+      if (p)  doc.text(fmtPrice(p),  colPos[3]+colW[3]/2, midY, {align:'center'});
+      if (rs) doc.text(fmtPrice(rs), colPos[4]+colW[4]/2, midY, {align:'center'});
     }
     y += rowH;
   }
