@@ -18,8 +18,9 @@ body { background: #f0f2f5; font-family: -apple-system, 'Segoe UI', Arial, sans-
 .row:last-child { margin-bottom: 0; }
 .field { display: flex; flex-direction: column; gap: 5px; flex: 1; }
 label { font-size: 0.7rem; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
-input, textarea { -webkit-appearance: none; appearance: none; border: 1.5px solid #dde1e7; border-radius: 8px; font-size: 1rem; padding: 11px 12px; font-family: inherit; color: #222; background: #fafbfc; outline: none; width: 100%; transition: border-color 0.2s; }
-input:focus, textarea:focus { border-color: #1a3a5c; background: white; }
+input:not([type="checkbox"]):not([type="file"]), textarea { -webkit-appearance: none; appearance: none; border: 1.5px solid #dde1e7; border-radius: 8px; font-size: 1rem; padding: 11px 12px; font-family: inherit; color: #222; background: #fafbfc; outline: none; width: 100%; transition: border-color 0.2s; }
+input:not([type="checkbox"]):not([type="file"]):focus, textarea:focus { border-color: #1a3a5c; background: white; }
+input[type="checkbox"] { -webkit-appearance: checkbox; appearance: auto; width: 20px; height: 20px; min-width: 20px; padding: 0; margin: 0; border: none; background: transparent; accent-color: #e8000e; cursor: pointer; flex-shrink: 0; }
 textarea { resize: vertical; min-height: 65px; }
 .item-card { background: #f7f9fb; border: 1.5px solid #e0e5ec; border-radius: 10px; padding: 12px 14px 12px 42px; margin-bottom: 10px; position: relative; }
 .item-num { position: absolute; top: 12px; left: 12px; background: #1a3a5c; color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; }
@@ -61,12 +62,12 @@ textarea { resize: vertical; min-height: 65px; }
 .btn-clear-img { background: none; border: none; color: #c0392b; font-size: 0.9rem; cursor: pointer; padding: 4px 8px; font-family: inherit; }
 .preset-note { background: #f0f4f8; border-radius: 9px; padding: 10px 12px; margin-bottom: 8px; }
 .preset-note-top { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
-.preset-note-red { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-left: 54px; font-size: 0.8rem; color: #666; cursor: pointer; }
-.preset-note-red input { width: 16px; height: 16px; accent-color: #e8000e; }
+.preset-note-red { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-left: 54px; }
+.btn-red-toggle { flex-shrink: 0; border: 2px solid #e8000e; background: #fff; color: #e8000e; border-radius: 8px; padding: 7px 14px; font-size: 0.78rem; font-weight: 700; cursor: pointer; font-family: inherit; -webkit-tap-highlight-color: transparent; text-transform: none; letter-spacing: 0; }
+.btn-red-toggle.on { background: #e8000e; color: #fff; }
 .extra-nota-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px; }
 .extra-nota-row input[type="text"] { flex: 1; }
-.extra-nota-red { display: flex; align-items: center; gap: 4px; flex-shrink: 0; padding-top: 12px; font-size: 0.75rem; color: #666; white-space: nowrap; }
-.extra-nota-red input { width: 16px; height: 16px; accent-color: #e8000e; }
+.extra-nota-red { flex-shrink: 0; padding-top: 4px; }
 .btn-add-nota { width: 100%; border: 1.5px dashed #b0bec5; background: none; border-radius: 8px; padding: 10px; color: #546e7a; font-size: 0.9rem; font-weight: 600; cursor: pointer; margin-top: 4px; font-family: inherit; }
 .notes-hint { font-size: 0.75rem; color: #888; margin: 10px 0 8px; line-height: 1.4; }
 </style>
@@ -287,14 +288,19 @@ function renderPresetNotes() {
       lbl.className = 'toggle-label';
       lbl.innerHTML = p.label;
       top.appendChild(tg); top.appendChild(lbl);
-      var redRow = document.createElement('label');
+      var redRow = document.createElement('div');
       redRow.className = 'preset-note-red';
-      var redChk = document.createElement('input');
-      redChk.type = 'checkbox';
-      redChk.id = 'presetRed_' + p.id;
-      if (p.defaultRed) redChk.checked = true;
-      redRow.appendChild(redChk);
-      redRow.appendChild(document.createTextNode('Mostrar en rojo'));
+      var redBtn = document.createElement('button');
+      redBtn.type = 'button';
+      redBtn.className = 'btn-red-toggle' + (p.defaultRed ? ' on' : '');
+      redBtn.id = 'presetRed_' + p.id;
+      redBtn.textContent = 'Rojo';
+      redBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.classList.toggle('on');
+      });
+      redRow.appendChild(redBtn);
       wrap.appendChild(top);
       wrap.appendChild(redRow);
       box.appendChild(wrap);
@@ -326,16 +332,20 @@ function renderExtraNotas() {
       inp.placeholder = 'Texto de la nota...';
       inp.value = n.text;
       inp.addEventListener('input', function() { n.text = this.value; });
-      var redLbl = document.createElement('label');
-      redLbl.className = 'extra-nota-red';
-      var redChk = document.createElement('input');
-      redChk.type = 'checkbox';
-      redChk.checked = n.red;
-      redChk.addEventListener('change', function() { n.red = this.checked; });
-      redLbl.appendChild(redChk);
-      redLbl.appendChild(document.createTextNode('Rojo'));
+      var redWrap = document.createElement('div');
+      redWrap.className = 'extra-nota-red';
+      var redBtn = document.createElement('button');
+      redBtn.type = 'button';
+      redBtn.className = 'btn-red-toggle' + (n.red ? ' on' : '');
+      redBtn.id = 'extraRed_' + n.id;
+      redBtn.textContent = 'Rojo';
+      redBtn.addEventListener('click', function() {
+        this.classList.toggle('on');
+        n.red = this.classList.contains('on');
+      });
+      redWrap.appendChild(redBtn);
       row.appendChild(inp);
-      row.appendChild(redLbl);
+      row.appendChild(redWrap);
       if (extraNotas.length > 1) {
         var del = document.createElement('button');
         del.type = 'button';
@@ -360,12 +370,16 @@ function collectPdfNotes() {
     var on = document.getElementById('preset_' + p.id);
     if (on && on.checked) {
       var redEl = document.getElementById('presetRed_' + p.id);
-      lines.push({ text: p.pdf, red: redEl && redEl.checked });
+      lines.push({ text: p.pdf, red: redEl && redEl.classList.contains('on') });
     }
   }
   for (var j = 0; j < extraNotas.length; j++) {
     var t = (extraNotas[j].text || '').trim();
-    if (t) lines.push({ text: t, red: !!extraNotas[j].red });
+    if (t) {
+      var redBtnEl = document.getElementById('extraRed_' + extraNotas[j].id);
+      var isRed = redBtnEl ? redBtnEl.classList.contains('on') : !!extraNotas[j].red;
+      lines.push({ text: t, red: isRed });
+    }
   }
   return lines;
 }
